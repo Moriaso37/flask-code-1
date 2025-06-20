@@ -1,45 +1,58 @@
+# server/controllers/restaurant_controller.py
 from flask import Blueprint, jsonify, request
+from server import db
 from server.models.restaurant import Restaurant
 from server.models.restaurant_pizza import RestaurantPizza
-from server import db
 
-restaurant_bp = Blueprint('restaurant', __name__, url_prefix='/restaurants')
+restaurants_bp = Blueprint('restaurants', __name__)
 
-@restaurant_bp.route('', methods=['GET'])
+@restaurants_bp.route('/restaurants', methods=['GET'])
 def get_restaurants():
-    restaurants = Restaurant.query.all()
-    return jsonify([{
-        'id': r.id,
-        'name': r.name,
-        'address': r.address
-    } for r in restaurants])
+    try:
+        restaurants = Restaurant.query.all()
+        return jsonify([{
+            'id': r.id,
+            'name': r.name,
+            'address': r.address
+        } for r in restaurants])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-@restaurant_bp.route('/<int:id>', methods=['GET'])
+@restaurants_bp.route('/restaurants/<int:id>', methods=['GET'])
 def get_restaurant(id):
-    restaurant = Restaurant.query.get(id)
-    if not restaurant:
-        return jsonify({'error': 'Restaurant not found'}), 404
-    
-    pizzas = [{
-        'id': rp.pizza.id,
-        'name': rp.pizza.name,
-        'ingredients': rp.pizza.ingredients
-    } for rp in restaurant.restaurant_pizzas]
-    
-    return jsonify({
-        'id': restaurant.id,
-        'name': restaurant.name,
-        'address': restaurant.address,
-        'pizzas': pizzas
-    })
+    try:
+        restaurant = Restaurant.query.get(id)
+        if not restaurant:
+            return jsonify({'error': 'Restaurant not found'}), 404
+            
+        pizzas = [{
+            'id': rp.pizza.id,
+            'name': rp.pizza.name,
+            'ingredients': rp.pizza.ingredients
+        } for rp in restaurant.pizzas]
+        
+        return jsonify({
+            'id': restaurant.id,
+            'name': restaurant.name,
+            'address': restaurant.address,
+            'pizzas': pizzas
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-@restaurant_bp.route('/<int:id>', methods=['DELETE'])
+@restaurants_bp.route('/restaurants/<int:id>', methods=['DELETE'])
 def delete_restaurant(id):
-    restaurant = Restaurant.query.get(id)
-    if not restaurant:
-        return jsonify({'error': 'Restaurant not found'}), 404
-    
-    db.session.delete(restaurant)
-    db.session.commit()
-    
-    return '', 204
+    try:
+        restaurant = Restaurant.query.get(id)
+        if not restaurant:
+            return jsonify({'error': 'Restaurant not found'}), 404
+            
+
+        RestaurantPizza.query.filter_by(restaurant_id=id).delete()
+        db.session.delete(restaurant)
+        db.session.commit()
+        
+        return '', 204
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
